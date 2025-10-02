@@ -82,13 +82,10 @@ export const Sender = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(6,182,212,0.1),transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.08),transparent_50%)]" />
-
-      <div className="relative z-10 w-full max-w-3xl">
-        <div className="mb-6">
-          <Link to="/" className="inline-flex items-center text-slate-400 hover:text-cyan-400 transition-colors duration-200 group">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-[#0a1628] via-[#1e3a5f] to-[#2d5a8c] p-6 relative overflow-hidden">
+      <div className="relative z-10 w-full max-w-5xl">
+        <div className="mb-8">
+          <Link to="/" className="inline-flex items-center text-blue-200 hover:text-white transition-colors duration-200 group">
             <svg className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -96,31 +93,31 @@ export const Sender = () => {
           </Link>
         </div>
 
-        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl border border-slate-700 rounded-3xl shadow-2xl overflow-hidden">
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
           <div className="p-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/30">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Broadcast Studio</h2>
-                  <p className="text-slate-400 text-sm">Share your camera with viewers</p>
+                  <h2 className="text-3xl font-bold text-white">Start Call</h2>
+                  <p className="text-blue-200">Waiting for someone to join...</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 border border-slate-700 rounded-full">
-                <div className={`w-2 h-2 rounded-full ${
-                  connected ? "bg-green-500 animate-pulse" : "bg-red-500"
+              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full">
+                <div className={`w-2.5 h-2.5 rounded-full ${
+                  connected ? "bg-green-400 animate-pulse" : "bg-red-400"
                 }`} />
-                <span className="text-sm text-slate-300">
+                <span className="text-white font-medium">
                   {connected ? "Connected" : "Disconnected"}
                 </span>
               </div>
             </div>
 
-            <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-700 shadow-2xl mb-6 group">
+            <div className="relative rounded-2xl overflow-hidden bg-slate-950 shadow-2xl mb-8">
               <video
                 ref={videoRef}
                 autoPlay
@@ -128,40 +125,42 @@ export const Sender = () => {
                 playsInline
                 className="w-full aspect-video object-cover"
               />
-              <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 bg-red-500/90 backdrop-blur-sm rounded-full">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                <span className="text-white text-sm font-medium">LIVE</span>
-              </div>
+              {connected && (
+                <div className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-lg">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  <span className="text-white font-semibold">Your Video</span>
+                </div>
+              )}
             </div>
 
             <button
               onClick={initiateConn}
               disabled={!connected}
-              className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 disabled:from-slate-700 disabled:to-slate-800 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-5 px-6 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] text-lg shadow-lg"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Start Broadcasting
+              {connected ? "Initiate Call" : "Connecting..."}
             </button>
           </div>
 
-          <div className="border-t border-slate-700 px-8 py-4 bg-slate-900/50">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-slate-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div className="border-t border-white/10 px-8 py-5 bg-white/5">
+            <div className="flex items-center justify-center gap-8 text-sm">
+              <div className="flex items-center gap-2 text-blue-200">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                <span>WebRTC peer-to-peer connection</span>
+                <span>Fast Connection</span>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5 text-slate-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <span>Encrypted</span>
-                </div>
+              <div className="flex items-center gap-2 text-blue-200">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span>Encrypted</span>
+              </div>
+              <div className="flex items-center gap-2 text-blue-200">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>HD Quality</span>
               </div>
             </div>
           </div>
