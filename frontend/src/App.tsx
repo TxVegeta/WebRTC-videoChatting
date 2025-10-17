@@ -7,19 +7,11 @@ function Home() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#1a2642] via-[#253a5e] to-[#2d4a7c] p-8 relative overflow-hidden">
       <div className="relative z-10 max-w-6xl w-full">
         <div className="text-center mb-20">
-          <div className="inline-block mb-8">
-            <div className="w-28 h-28 bg-blue-600 rounded-full flex items-center justify-center shadow-2xl">
-              <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </div>
-          </div>
-          <h1 className="text-7xl font-bold text-white mb-6 tracking-tight">
-            VidConnect
-          </h1>
-          <p className="text-blue-100 text-xl max-w-3xl mx-auto leading-relaxed">
-            High-quality peer-to-peer video calling. Connect instantly with crystal clear audio and video.
-          </p>
+          <img
+            src="/Screenshot 2025-10-17 at 12.34.44 PM.png"
+            alt="VidConnect"
+            className="mx-auto mb-8 max-w-full"
+          />
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto mb-20">
