@@ -1,169 +1,182 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 
 export const Sender = () => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [connected, setConnected] = useState(false);
+  const [meetingId, setMeetingId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<{ author: "You" | "Peer"; message: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:8080");
     setSocket(ws);
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "sender" }));
-      setConnected(true);
+    ws.onmessage = async (event) => {
+      const message = JSON.parse(event.data);
+      const pc = pcRef.current;
+
+      switch (message.type) {
+        case "meetingCreated":
+          setMeetingId(message.meetingId);
+          break;
+        case "createAnswer":
+          if (pc) await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+          break;
+        case "iceCandidate":
+          if (pc) await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+          break;
+        case "chat":
+          setChatMessages(prev => [...prev, { author: "Peer", message: message.message }]);
+          break;
+      }
     };
 
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-      setConnected(false);
-    };
+    ws.onopen = () => ws.send(JSON.stringify({ type: "sender" }));
+    ws.onerror = (err) => console.error("WebSocket error:", err);
+    ws.onclose = () => console.log("WebSocket closed");
 
-    ws.onclose = () => setConnected(false);
-
-    return () => {
-      ws.close();
-      setConnected(false);
-    };
+    return () => ws.close();
   }, []);
 
-  const initiateConn = async () => {
-    if (!socket) {
-      alert("Socket not found");
-      return;
-    }
+  const createMeeting = () => {
+    if (socket) socket.send(JSON.stringify({ type: "createMeeting" }));
+  };
 
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-    });
+  const initiateConn = async () => {
+    if (!socket) return alert("Socket not found");
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
     pcRef.current = pc;
 
-    socket.onmessage = async (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === "createAnswer") {
-        await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-      } else if (message.type === "iceCandidate") {
-        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-      }
-    };
-
     pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.send(JSON.stringify({
-          type: "iceCandidate",
-          candidate: event.candidate
-        }));
-      }
+      if (event.candidate) socket.send(JSON.stringify({ type: "iceCandidate", candidate: event.candidate }));
     };
 
     pc.onnegotiationneeded = async () => {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      socket.send(JSON.stringify({
-        type: "createOffer",
-        sdp: pc.localDescription
-      }));
+      socket.send(JSON.stringify({ type: "createOffer", sdp: pc.localDescription }));
     };
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (err) {
       console.error("Camera error:", err);
-      alert("Camera access denied or not available.");
     }
   };
 
+  // --- Chat ---
+  const sendMessage = () => {
+    if (socket && chatInput.trim()) {
+      socket.send(JSON.stringify({ type: "chat", message: chatInput }));
+      setChatMessages(prev => [...prev, { author: "You", message: chatInput }]);
+      setChatInput("");
+    }
+  };
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') sendMessage(); };
+
+  // --- Audio/Video Toggle ---
+  const toggleVideo = () => {
+    if (streamRef.current) {
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      videoTrack.enabled = !videoTrack.enabled;
+      setVideoEnabled(videoTrack.enabled);
+    }
+  };
+
+  const toggleAudio = () => {
+    if (streamRef.current) {
+      const audioTrack = streamRef.current.getAudioTracks()[0];
+      audioTrack.enabled = !audioTrack.enabled;
+      setAudioEnabled(audioTrack.enabled);
+    }
+  };
+  const shareScreen = async () => {
+  if (!pcRef.current) return alert("Call not started");
+
+  try {
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const screenTrack = screenStream.getVideoTracks()[0];
+
+    // Replace the current video track in the peer connection
+    const sender = pcRef.current.getSenders().find(s => s.track?.kind === 'video');
+    if (sender) sender.replaceTrack(screenTrack);
+
+    // When screen sharing stops, revert back to camera
+    screenTrack.onended = async () => {
+      const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const cameraTrack = cameraStream.getVideoTracks()[0];
+      if (sender) sender.replaceTrack(cameraTrack);
+      if (videoRef.current) videoRef.current.srcObject = cameraStream;
+      streamRef.current = cameraStream;
+    };
+
+    // Show screen in local video
+    if (videoRef.current) videoRef.current.srcObject = screenStream;
+
+  } catch (err) {
+    console.error("Screen share error:", err);
+    alert("Screen sharing failed or was canceled.");
+  }
+};
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-[#0a1628] via-[#1e3a5f] to-[#2d5a8c] p-6 relative overflow-hidden">
-      <div className="relative z-10 w-full max-w-5xl">
-        <div className="mb-8">
-          <Link to="/" className="inline-flex items-center text-blue-200 hover:text-white transition-colors duration-200 group">
-            <svg className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to home
-          </Link>
+    
+
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#111827] text-white">
+      {/* Video Section */}
+      <div className="flex-grow flex flex-col items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-4xl space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button onClick={createMeeting} className="flex-1 bg-green-600 hover:bg-green-700 font-bold py-3 px-6 rounded-lg">Create Meeting</button>
+            <button onClick={initiateConn} disabled={!meetingId} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 font-bold py-3 px-6 rounded-lg">Start Call</button>
+          </div>
+
+          {meetingId && <div className="text-center p-3 bg-gray-800 rounded-lg">Meeting ID: <strong className="text-green-400 select-all">{meetingId}</strong></div>}
+
+          <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black shadow-2xl">
+            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+          </div>
+
+          {/* Audio/Video Controls */}
+          <div className="flex gap-4 mt-4 justify-center">
+            <button onClick={toggleAudio} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg">{audioEnabled ? "Mute Mic" : "Unmute Mic"}</button>
+            <button onClick={toggleVideo} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg">{videoEnabled ? "Turn Camera Off" : "Turn Camera On"}</button>
+          </div>
         </div>
+      </div>
 
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
-          <div className="p-8">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-3xl font-bold text-white">Start Call</h2>
-                  <p className="text-blue-200">Waiting for someone to join...</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full">
-                <div className={`w-2.5 h-2.5 rounded-full ${
-                  connected ? "bg-green-400 animate-pulse" : "bg-red-400"
-                }`} />
-                <span className="text-white font-medium">
-                  {connected ? "Connected" : "Disconnected"}
-                </span>
-              </div>
+      {/* Chat Section */}
+      <div className="w-full md:w-96 h-[50vh] md:h-screen flex flex-col bg-[#1f2937] border-l border-gray-600">
+        <h2 className="text-xl font-bold p-4 border-b border-gray-600">Chat</h2>
+        <div ref={chatContainerRef} className="flex-grow p-4 space-y-4 overflow-y-auto">
+          {chatMessages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.author === 'You' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`p-3 rounded-lg max-w-xs ${msg.author === 'You' ? 'bg-blue-600' : 'bg-gray-600'}`}><p className="text-sm">{msg.message}</p></div>
             </div>
+          ))}
+        </div>
+        <div className="p-4 border-t border-gray-600 flex gap-2">
+          <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={handleKeyPress} placeholder="Type a message..." className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none" disabled={!meetingId} />
+          <button onClick={sendMessage} disabled={!meetingId} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 font-bold py-2 px-4 rounded-lg">Send</button>
+          <button onClick={shareScreen} className="share-screen ">
+  Share Screen
+</button>
 
-            <div className="relative rounded-2xl overflow-hidden bg-slate-950 shadow-2xl mb-8">
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full aspect-video object-cover"
-              />
-              {connected && (
-                <div className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-lg">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  <span className="text-white font-semibold">Your Video</span>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={initiateConn}
-              disabled={!connected}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-5 px-6 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] text-lg shadow-lg"
-            >
-              {connected ? "Initiate Call" : "Connecting..."}
-            </button>
-          </div>
-
-          <div className="border-t border-white/10 px-8 py-5 bg-white/5">
-            <div className="flex items-center justify-center gap-8 text-sm">
-              <div className="flex items-center gap-2 text-blue-200">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span>Fast Connection</span>
-              </div>
-              <div className="flex items-center gap-2 text-blue-200">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                <span>Encrypted</span>
-              </div>
-              <div className="flex items-center gap-2 text-blue-200">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                <span>HD Quality</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
